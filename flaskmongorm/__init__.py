@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding=utf-8 -*-
 
+import textwrap
 from bson.objectid import ObjectId
 from bson.codec_options import CodecOptions
 from flask import current_app, request
 from pymongo import ASCENDING, DESCENDING, TEXT
-from flask_pymongo import PyMongo
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 INDEX_NAMES = dict(
     asc=ASCENDING,
@@ -17,7 +17,7 @@ INDEX_NAMES = dict(
     text=TEXT,
 )
 
-mongo = PyMongo()
+wrapper = textwrap.TextWrapper(break_long_words=False)
 
 
 def get_sort(sort):
@@ -61,16 +61,16 @@ def get_uniq_spec(fields=[], doc={}):
 class BaseModel:
     __collection__ = None
     __unique_fields__ = []
+    __mongo__ = None
+    __paginatecls__ = None
+    __timezone__ = None
 
     def __init__(self, *args, **kwargs):
         self.__dict__.update(kwargs)
 
-    def get_wrap_text(self, text, idx=50):
-        lines = []
-        for i in range(len(text))[::idx]:
-            lines.append(text[i:i + idx])
-
-        return "<br />".join(lines)
+    def get_wrap_text(self, text, width=50):
+        wrapper.width = width
+        return "<br />".join(wrapper.wrap(text))
 
     @property
     def id(self):
@@ -106,7 +106,7 @@ class BaseModel:
 
     @classmethod
     def get_collection(cls):
-        return mongo.db[cls.__dict__["__collection__"]]
+        return cls.__mongo__.db[cls.__dict__["__collection__"]]
 
     @classmethod
     def is_unique(cls, fields=[], doc={}, id=None, dbdoc={}, *args, **kwargs):
@@ -128,6 +128,9 @@ class BaseModel:
     @classmethod
     def get_tzinfo(cls, **kwargs):
         timezone = current_app.config.get("TIMEZONE")
+        if not timezone:
+            timezone = cls.__timezone__
+
         if timezone:
             if isinstance(timezone, str):
                 try:
@@ -184,13 +187,12 @@ class BaseModel:
         paginate = kwargs.pop("paginate", False)
         page_name = kwargs.pop("page_name", None)
         per_page_name = kwargs.pop("per_page_name", None)
-        paginate_cls = kwargs.pop("paginate_cls", None)
         page = per_page = skip = None
-        if paginate:
+        if paginate and cls.__paginatecls__:
             page_name = page_name or "page"
             per_page_name = per_page_name or "per_page"
 
-            page, per_page, skip = paginate_cls.get_page_args(
+            page, per_page, skip = cls.__paginatecls__.get_page_args(
                 page_name, per_page_name
             )
 
