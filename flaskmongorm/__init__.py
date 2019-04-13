@@ -7,7 +7,7 @@ from bson.codec_options import CodecOptions
 from flask import current_app, request
 from pymongo import ASCENDING, DESCENDING, TEXT
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 INDEX_NAMES = dict(
     asc=ASCENDING,
@@ -64,6 +64,7 @@ class BaseModel:
     __mongo__ = None
     __paginatecls__ = None
     __timezone__ = None
+    __default_values__ = {}  # default value for non-exist fields
 
     def __init__(self, *args, **kwargs):
         self.__dict__.update(kwargs)
@@ -91,8 +92,11 @@ class BaseModel:
 
         return _id if allow_invalid else None
 
+    def _get_default(self, key):
+        return self.__class__.__default_values__.get(key)
+
     def __getitem__(self, key):
-        return self.__dict__.get(key)
+        return self.__dict__.get(key, self._get_default(key))
 
     def __setitem__(self, key, value):
         self.__dict__[key] = value
@@ -101,12 +105,19 @@ class BaseModel:
         return "{}".format(self.__dict__)
 
     def __getattr__(self, key):
-        """just return None instead of key error"""
-        return None
+        """return default value instead of key error"""
+        return self._get_default(key)
 
     @classmethod
     def get_collection(cls):
         return cls.__mongo__.db[cls.__dict__["__collection__"]]
+
+    @classmethod
+    def get_wrapped_coll(cls, kwargs):
+        tzinfo = cls.get_tzinfo(**kwargs)
+        kwargs.pop("timezone", None)
+
+        return cls.wrap_coll_tzinfo(cls.get_collection(), tzinfo)
 
     @classmethod
     def is_unique(cls, fields=[], doc={}, id=None, dbdoc={}, *args, **kwargs):
@@ -162,24 +173,16 @@ class BaseModel:
         per_page = kwargs.get(per_page_name)
         if request:
             if not page:
-                page = request.args.get(page_name, 1)
+                page = request.args.get(page_name, 1, type=int)
 
             if not per_page:
-                per_page = request.args.get(per_page_name, 10)
+                per_page = request.args.get(per_page_name, 10, type=int)
 
         if not (page and per_page):
             return 0, 0, 0
 
-        try:
-            per_page = int(per_page)
-        except (ValueError, TypeError):
-            per_page = 10
-
-        try:
-            page = int(page)
-        except (ValueError, TypeError):
-            page = 1
-
+        page = int(page)
+        per_page = int(per_page)
         return page, per_page, per_page * (page - 1)
 
     @classmethod
@@ -209,11 +212,7 @@ class BaseModel:
         as_raw = kwargs.pop("as_raw", False)
         kwargs.update(sort=get_sort(kwargs.get("sort")))
 
-        tzinfo = cls.get_tzinfo(**kwargs)
-        kwargs.pop("timezone", None)
-
-        coll = cls.wrap_coll_tzinfo(cls.get_collection(), tzinfo)
-        cur = coll.find(*args, **kwargs)
+        cur = cls.get_wrapped_coll(kwargs).find(*args, **kwargs)
         if as_raw:
             cur.objects = [doc for doc in cur]
         else:
@@ -227,11 +226,7 @@ class BaseModel:
             filter = dict(_id=cls.get_oid(filter))
 
         as_raw = kwargs.pop("as_raw", False)
-        tzinfo = cls.get_tzinfo(**kwargs)
-        kwargs.pop("timezone", None)
-
-        coll = cls.wrap_coll_tzinfo(cls.get_collection(), tzinfo)
-        doc = coll.find_one(filter, *args, **kwargs)
+        doc = cls.get_wrapped_coll(kwargs).find_one(filter, *args, **kwargs)
         return (doc if as_raw else cls(**doc)) if doc else None
 
     @classmethod
