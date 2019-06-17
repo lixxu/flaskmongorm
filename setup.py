@@ -26,7 +26,7 @@ setup(
     packages=["flaskmongorm"],
     zip_safe=False,
     platforms="any",
-    install_requires=["flask-pymongo", "pytz"],
+    install_requires=["flask-pymongo", "pymongo>=3.6", "pytz"],
     classifiers=[
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
