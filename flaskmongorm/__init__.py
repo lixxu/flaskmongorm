@@ -18,7 +18,7 @@ from pymongo import (
     TEXT,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 INDEX_NAMES = dict(
     asc=ASCENDING,
@@ -98,7 +98,7 @@ class BaseMixin:
     def to_dict(self, include_defaults=True, deep=True, extras={}):
         d = copy.deepcopy(self.__dict__) if deep else copy.copy(self.__dict__)
         if include_defaults:
-            for k, v in self.get_all_defaults():
+            for k, v in self.get_all_defaults().items():
                 d.setdefault(k, v)
 
         d.update(extras)
