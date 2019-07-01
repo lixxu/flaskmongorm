@@ -18,7 +18,7 @@ from pymongo import (
     TEXT,
 )
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 INDEX_NAMES = dict(
     asc=ASCENDING,
@@ -95,14 +95,24 @@ class BaseMixin:
 
         return _id if allow_invalid else None
 
-    def to_dict(self, include_defaults=True, deep=True, extras={}):
+    def to_dict(
+        self,
+        include_defaults=True,
+        deep=True,
+        extras={},
+        excludes=[],
+        onlys=[],
+    ):
         d = copy.deepcopy(self.__dict__) if deep else copy.copy(self.__dict__)
         if include_defaults:
             for k, v in self.get_all_defaults().items():
                 d.setdefault(k, v)
 
         d.update(extras)
-        return d
+        if onlys:
+            return {k: v for k, v in d.items() if k in onlys}
+
+        return {k: v for k, v in d.items() if k not in excludes}
 
     @classmethod
     def get_client(cls):
@@ -298,6 +308,14 @@ class BaseMixin:
 
             if k in doc and k in dct and doc[k] == dct[k]:
                 doc.pop(k)
+
+    @staticmethod
+    def get_fresh(new_dict, old_dict):
+        return {
+            k: v
+            for k, v in new_dict.items()
+            if k not in old_dict or v != old_dict[k]
+        }
 
 
 class BaseModel(BaseMixin):
