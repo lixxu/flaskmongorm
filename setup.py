@@ -18,7 +18,7 @@ setup(
     name="flaskmongorm",
     version=version.replace('"', ""),
     url="https://github.com/lixxu/flaskmongorm",
-    license="BSD",
+    license="BSD-3-Clause",
     author="Lix Xu",
     author_email="xuzenglin@gmail.com",
     description="Simple wrapper for flask-pymongo",
