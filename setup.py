@@ -4,9 +4,12 @@ flaskmongorm
 
 simple wrapper for flask-pymongo
 """
+
 from pathlib import Path
+
 from setuptools import setup
 
+version = ""
 p = Path(__file__) / "../flaskmongorm/__init__.py"
 with p.resolve().open(encoding="utf-8") as f:
     for line in f:
