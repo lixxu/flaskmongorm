@@ -29,7 +29,12 @@ setup(
     packages=["flaskmongorm"],
     zip_safe=False,
     platforms="any",
-    install_requires=["flask-pymongo", "pymongo>=3.6", "pytz"],
+    install_requires=[
+        "flask-pymongo",
+        "pymongo>=3.6",
+        "tzdata",
+        'backports.zoneinfo;python_version<"3.9"',
+    ],
     classifiers=[
         "Environment :: Web Environment",
         "Intended Audience :: Developers",

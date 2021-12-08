@@ -3,7 +3,11 @@
 
 import copy
 
-import pytz
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo
+
 import six
 from bson.codec_options import CodecOptions
 from bson.objectid import ObjectId
@@ -19,7 +23,7 @@ from pymongo import (
     IndexModel,
 )
 
-__version__ = "2021.12.4"
+__version__ = "2021.12.8"
 
 INDEX_NAMES = dict(
     asc=ASCENDING,
@@ -190,7 +194,7 @@ class BaseMixin:
         timezone = current_app.config.get("TIMEZONE") or cls.__timezone__
         if timezone:
             if isinstance(timezone, str):
-                return pytz.timezone(timezone)
+                return zoneinfo.ZoneInfo(timezone)
 
             return timezone
 
