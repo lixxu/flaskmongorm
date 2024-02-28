@@ -2,14 +2,13 @@
 # -*- coding=utf-8 -*-
 
 import copy
-from typing import Any
+from typing import Any, Union
 
 try:
     import zoneinfo
 except ImportError:
     from backports import zoneinfo
 
-import six
 from bson.codec_options import CodecOptions
 from bson.objectid import ObjectId
 from flask import current_app, request
@@ -24,8 +23,9 @@ from pymongo import (
     TEXT,
     IndexModel,
 )
+from pymongo.cursor import CursorType
 
-__version__ = "2022.3.28"
+__version__ = "2024.02.28"
 
 INDEX_NAMES = dict(
     asc=ASCENDING,
@@ -46,8 +46,8 @@ def get_sort(sort: Any = None, for_index: bool = False) -> Any:
     if sort is None or isinstance(sort, list) and not for_index:
         return sort
 
-    names = INDEX_NAMES if for_index else SORT_NAMES
     sorts = []
+    names_map = INDEX_NAMES if for_index else SORT_NAMES
     for items in sort.strip().split(";"):  # ; for many indexes
         items = items.strip()
         if items:
@@ -57,9 +57,9 @@ def get_sort(sort: Any = None, for_index: bool = False) -> Any:
                 if item:
                     if " " in item:
                         field, _sort = item.replace("  ", " ").split(" ")[:2]
-                        lst.append((field, names[_sort.lower()]))
+                        lst.append((field, names_map[_sort.lower()]))
                     else:
-                        lst.append((item, names["asc"]))
+                        lst.append((item, names_map["asc"]))
 
             if lst:
                 sorts.append(lst)
@@ -87,9 +87,9 @@ class BaseMixin:
         cls,
         app: Any,
         *args: Any,
-        uri: str = None,
-        dbname: str = None,
-        dbkey: str = None,
+        uri: Union[str, None] = None,
+        dbname: Union[str, None] = None,
+        dbkey: Union[str, None] = None,
         **kwargs: Any,
     ) -> None:
         kwargs.setdefault("connect", False)
@@ -169,7 +169,7 @@ class BaseMixin:
 
     @classmethod
     def get_all_defaults(cls) -> dict:
-        return cls.get_class_attr("__default_values__", attr_type={})
+        return cls.get_class_attr("__default_values__", attr_type="dict")
 
     def _get_default(self, key: Any) -> Any:
         for kls in self.__class__.__mro__:
@@ -242,9 +242,7 @@ class BaseMixin:
         return cls.get_collection().with_options(*args, **kwargs)
 
     @classmethod
-    def wrap_coll_tzinfo(
-        cls, coll: Collection, tzinfo: Any = None
-    ) -> Collection:
+    def wrap_coll_tzinfo(cls, coll: Collection, tzinfo: Any = None) -> Collection:
         if tzinfo:
             return coll.with_options(
                 codec_options=CodecOptions(tz_aware=True, tzinfo=tzinfo)
@@ -254,7 +252,10 @@ class BaseMixin:
 
     @classmethod
     def get_page_args(
-        cls, page_name: str = None, per_page_name: str = None, **kwargs: Any
+        cls,
+        page_name: Union[str, None] = None,
+        per_page_name: Union[str, None] = None,
+        **kwargs: Any,
     ) -> tuple:
         if not (page_name and per_page_name):
             return 0, 0, 0
@@ -276,10 +277,10 @@ class BaseMixin:
 
     @classmethod
     def _parse_find_options(cls, kwargs: dict) -> None:
+        per_page = skip = None
         paginate = kwargs.pop("paginate", False)
         page_name = kwargs.pop("page_name", None)
         per_page_name = kwargs.pop("per_page_name", None)
-        per_page = skip = None
         if paginate and cls.__paginatecls__:
             page_name = page_name or "page"
             per_page_name = per_page_name or "per_page"
@@ -301,9 +302,7 @@ class BaseMixin:
     def save(self, *args: Any, **kwargs: Any) -> Any:
         """not pymongo save() method"""
         if self.id:
-            return self.__class__.update_one(
-                dict(_id=self.id), *args, **kwargs
-            )
+            return self.__class__.update_one(dict(_id=self.id), *args, **kwargs)
 
         return self.__class__.insert_one(self.to_dict(), **kwargs)
 
@@ -331,9 +330,7 @@ class BaseMixin:
 
     @classmethod
     def get_uniq_spec(cls, fields: list = [], doc: dict = {}) -> Any:
-        return get_uniq_spec(
-            fields or cls.__dict__.get("__unique_fields__", []), doc
-        )
+        return get_uniq_spec(fields or cls.__dict__.get("__unique_fields__", []), doc)
 
     @classmethod
     def get_class_attr(
@@ -354,26 +351,28 @@ class BaseMixin:
         return data
 
     @classmethod
-    def with_session(cls, action: str, *args: Any, **kwargs: Any) -> Any:
-        if isinstance(action, six.string_types):
-            action = getattr(cls.get_collection(), action)
+    def with_session(cls, action: Any, *args: Any, **kwargs: Any) -> Any:
+        if isinstance(action, str):
+            func = getattr(cls.get_collection(), action)
+        else:
+            func = action
 
         no_session = kwargs.pop("no_session", None)
         if no_session is True:
-            return action(*args, **kwargs)
+            return func(*args, **kwargs)
 
         if cls.__use_transaction__ and cls.__support_transaction__:
             with cls.get_client().start_session() as sess:
                 kwargs.setdefault("session", sess)
                 with sess.start_transaction():
-                    return action(*args, **kwargs)
+                    return func(*args, **kwargs)
 
-        return action(*args, **kwargs)
+        return func(*args, **kwargs)
 
-    def clean_for_dirty(self, doc: dict = {}, keys: dict = []) -> Any:
+    def clean_for_dirty(self, doc: dict = {}, keys: list = []) -> Any:
         """Remove non-changed items."""
         cleaned = {}
-        for k in keys or list(doc.keys()):
+        for k in keys or list(doc):
             if k == "_id":
                 return
 
@@ -385,9 +384,7 @@ class BaseMixin:
     @staticmethod
     def get_fresh(new_dict: dict, old_dict: dict) -> dict:
         return {
-            k: v
-            for k, v in new_dict.items()
-            if k not in old_dict or v != old_dict[k]
+            k: v for k, v in new_dict.items() if k not in old_dict or v != old_dict[k]
         }
 
     @classmethod
@@ -397,9 +394,10 @@ class BaseMixin:
 
 class BaseModel(BaseMixin):
     __collection__ = None
+
+    __timezone__ = None
     __unique_fields__ = []  # not inherit
     __paginatecls__ = None  # for pagination
-    __timezone__ = None
     __default_values__ = {}  # default value for non-exist fields
     # use IndexModel to create indexes
     # (see pymongo.operations.IndexModel for details)
@@ -418,16 +416,31 @@ class BaseModel(BaseMixin):
     @classmethod
     def find(cls, *args: Any, **kwargs: Any) -> Any:
         # convert to object or keep dict format
+        count = kwargs.pop("count", True)
         as_raw = kwargs.pop("as_raw", False)
+        as_list = kwargs.pop("as_list", True)
         cls._parse_find_options(kwargs)
         cur = cls._run(cls.get_wrapped_coll(kwargs).find, *args, **kwargs)
         if as_raw:
-            cur.objects = [doc for doc in cur]
-        else:
-            cur.objects = [cls(**doc) for doc in cur]
+            if as_list:
+                cur.objects = [doc for doc in cur]
 
-        cur.total = cls.count_documents(kwargs.get("filter"))
+        else:
+            if as_list:
+                cur.objects = [cls(**doc) for doc in cur]
+
+        if count:
+            cur.total = cls.count_documents(kwargs.get("filter"))
+
         return cur
+
+    @classmethod
+    def iter_docs(cls, cur: CursorType, as_raw: bool = False) -> Any:
+        for doc in cur:
+            if as_raw:
+                yield doc
+            else:
+                yield cls(**doc)
 
     @classmethod
     def find_raw_batches(cls, *args: Any, **kwargs: Any) -> Any:
@@ -441,9 +454,7 @@ class BaseModel(BaseMixin):
             filter = dict(_id=cls.get_oid(filter))
 
         as_raw = kwargs.pop("as_raw", False)
-        doc = cls._run(
-            cls.get_wrapped_coll(kwargs).find_one, filter, *args, **kwargs
-        )
+        doc = cls._run(cls.get_wrapped_coll(kwargs).find_one, filter, *args, **kwargs)
         return (doc if as_raw else cls(**doc)) if doc else None
 
     @classmethod

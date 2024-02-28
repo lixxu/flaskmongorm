@@ -33,8 +33,8 @@ setup(
     zip_safe=False,
     platforms="any",
     install_requires=[
-        "flask-pymongo",
-        "pymongo>=3.6, <4.0",
+        "flask-pymongo>=2.3.0",
+        "pymongo",
         "tzdata",
         'backports.zoneinfo;python_version<"3.9"',
     ],
@@ -46,11 +46,10 @@ setup(
         "Programming Language :: Python",
         "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
         "Topic :: Software Development :: Libraries :: Python Modules",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
 )
