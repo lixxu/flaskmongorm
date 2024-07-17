@@ -25,7 +25,7 @@ from pymongo import (
 )
 from pymongo.cursor import CursorType
 
-__version__ = "2024.02.28"
+__version__ = "2024.07.17"
 
 INDEX_NAMES = dict(
     asc=ASCENDING,
@@ -454,6 +454,7 @@ class BaseModel(BaseMixin):
             filter = dict(_id=cls.get_oid(filter))
 
         as_raw = kwargs.pop("as_raw", False)
+        cls._parse_find_options(kwargs)
         doc = cls._run(cls.get_wrapped_coll(kwargs).find_one, filter, *args, **kwargs)
         return (doc if as_raw else cls(**doc)) if doc else None
 
