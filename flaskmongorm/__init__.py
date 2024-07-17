@@ -25,7 +25,7 @@ from pymongo import (
 )
 from pymongo.cursor import CursorType
 
-__version__ = "2024.07.17"
+__version__ = "2024.07.18"
 
 INDEX_NAMES = dict(
     asc=ASCENDING,
@@ -430,7 +430,7 @@ class BaseModel(BaseMixin):
                 cur.objects = [cls(**doc) for doc in cur]
 
         if count:
-            cur.total = cls.count_documents(kwargs.get("filter"))
+            cur.total = cls.count_documents(kwargs.get("filter", {}))
 
         return cur
 
