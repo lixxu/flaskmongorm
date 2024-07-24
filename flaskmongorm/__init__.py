@@ -25,7 +25,7 @@ from pymongo import (
 )
 from pymongo.cursor import CursorType
 
-__version__ = "2024.07.18"
+__version__ = "2024.07.24"
 
 INDEX_NAMES = dict(
     asc=ASCENDING,
@@ -547,7 +547,9 @@ class BaseModel(BaseMixin):
         if cls.__background_index__ is not None:
             kwargs.setdefault("background", cls.__background_index__)
 
-        return cls._run("create_indexes", cls.parse_indexes(indexes), **kwargs)
+        indexes = cls.parse_indexes(indexes)
+        if indexes:
+            return cls._run("create_indexes", indexes, **kwargs)
 
     @classmethod
     def count_documents(cls, *args: Any, **kwargs: Any) -> Any:
