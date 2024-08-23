@@ -25,7 +25,7 @@ from pymongo import (
 )
 from pymongo.cursor import CursorType
 
-__version__ = "2024.07.24"
+__version__ = "2024.08.23"
 
 INDEX_NAMES = dict(
     asc=ASCENDING,
@@ -72,7 +72,7 @@ def get_uniq_spec(fields: list = [], doc: dict = {}) -> Any:
     for field in fields:
         spec = {}
         for k in [f.strip() for f in field.split(",") if f.strip()]:
-            if k in doc:
+            if k in doc and doc[k] not in {"", None}:
                 spec[k] = doc[k]
 
         if spec:
